@@ -1,0 +1,178 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Laxket QR Generator</title>  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif}
+
+    body{
+      min-height:100vh;display:flex;justify-content:center;align-items:center;
+      background:#000; /* black main */
+      color:#fff;
+    }
+
+    .card{
+      width:380px;padding:30px;border-radius:24px;
+      background:#111; /* dark black */
+      text-align:center;box-shadow:0 0 25px #ff000044;
+      border:1px solid #ff000055;
+    }
+
+    h1{margin-bottom:15px;color:#ff0000}
+
+    select,input{width:100%;padding:12px;margin-bottom:10px;border-radius:12px;border:none;font-size:14px}
+
+    .row{display:flex;gap:8px}
+
+    .btn{
+      flex:1;padding:12px;margin-top:8px;border:none;border-radius:14px;font-size:14px;cursor:pointer;
+      background:#ff0000;color:#fff;transition:.3s
+    }
+
+    .btn:hover{background:#cc0000}
+
+    #qrcode{margin-top:18px;padding:12px;background:#fff;border-radius:16px;display:inline-block;position:relative}
+
+    .small{font-size:12px;opacity:.8;margin-top:8px}
+
+    /* Password gate only after QR scan */
+    .gate{position:fixed;inset:0;background:#000e;display:flex;justify-content:center;align-items:center}
+
+    .gate-box{background:#111;color:#fff;padding:20px;border-radius:16px;text-align:center;width:260px;border:1px solid #ff0000}
+  </style></head>
+<body>  <!-- MAIN WEBSITE (NO PASSWORD FIELD HERE) -->  <div class="card" id="mainCard">
+    <h1>Laxket QR Generator</h1><select id="type" onchange="updateFields()">
+  <option value="text">Text / Link</option>
+  <option value="phone">Phone</option>
+  <option value="email">Email</option>
+  <option value="sms">SMS</option>
+  <option value="wifi">WiFi</option>
+  <option value="location">Location</option>
+</select>
+
+<input id="input1" placeholder="Enter text or link">
+<input id="input2" style="display:none">
+<input id="input3" style="display:none">
+
+<div class="row">
+  <button class="btn" onclick="setPassword()">Set Password (optional)</button>
+</div>
+
+<div class="row">
+  <button class="btn" onclick="generateQR()">Generate</button>
+  <button class="btn" onclick="downloadQR()">Download</button>
+</div>
+
+<button class="btn" onclick="clearQR()">Clear</button>
+
+<div id="qrcode"></div>
+
+<div class="small">Total Generated: <span id="count">0</span></div>
+
+  </div>  <!-- PASSWORD SCREEN AFTER SCAN -->  <div id="gate" class="gate" style="display:none">
+    <div class="gate-box">
+      <h3>Enter QR Password</h3>
+      <input id="enterPass" type="password" placeholder="Password">
+      <button class="btn" onclick="unlock()">Open</button>
+    </div>
+  </div>  <script>
+    let countVal = localStorage.getItem('genCount') || 0;
+    let qrPassword = "";
+    count.innerText = countVal;
+
+    function setPassword(){
+      const p = prompt("Enter password for this QR (leave blank for no password)");
+      qrPassword = p || "";
+      if(qrPassword) alert("Password set successfully");
+    }
+
+    function updateFields(){
+      const t=type.value;
+      input2.style.display='none';
+      input3.style.display='none';
+
+      if(t==='phone') input1.placeholder='Phone number';
+
+      else if(t==='email'){
+        input1.placeholder='Email';
+        input2.placeholder='Subject';
+        input3.placeholder='Message';
+        input2.style.display='block';
+        input3.style.display='block';
+      }
+
+      else if(t==='sms'){
+        input1.placeholder='Phone';
+        input2.placeholder='Message';
+        input2.style.display='block';
+      }
+
+      else if(t==='wifi'){
+        input1.placeholder='WiFi Name';
+        input2.placeholder='Password';
+        input3.placeholder='Security WPA';
+        input2.style.display='block';
+        input3.style.display='block';
+      }
+
+      else if(t==='location'){
+        input1.placeholder='Latitude';
+        input2.placeholder='Longitude';
+        input2.style.display='block';
+      }
+
+      else input1.placeholder='Enter text or link';
+    }
+
+    function generateQR(){
+      const t=type.value,v1=input1.value.trim(),v2=input2.value.trim(),v3=input3.value.trim();
+      if(!v1) return alert('Fill required field');
+
+      let data=v1;
+      if(t==='phone') data=`tel:${v1}`;
+      if(t==='email') data=`mailto:${v1}?subject=${v2}&body=${v3}`;
+      if(t==='sms') data=`sms:${v1}?body=${v2}`;
+      if(t==='wifi') data=`WIFI:T:${v3};S:${v1};P:${v2};;`;
+      if(t==='location') data=`https://maps.google.com/?q=${v1},${v2}`;
+
+      if(qrPassword){
+        const payload = btoa(JSON.stringify({d:data,p:qrPassword}));
+        data = location.origin + location.pathname + '#qrlock=' + payload;
+      }
+
+      qrcode.innerHTML='';
+      new QRCode(qrcode,{text:data,width:220,height:220,colorDark:'#000000'});
+
+      countVal++; localStorage.setItem('genCount',countVal); count.innerText=countVal;
+    }
+
+    function downloadQR(){
+      const img=document.querySelector('#qrcode img');
+      if(!img) return alert('Generate QR first');
+      const a=document.createElement('a');
+      a.href=img.src;a.download='laxket-qr.png';a.click();
+    }
+
+    function clearQR(){
+      qrcode.innerHTML='';
+      document.querySelectorAll('#mainCard input').forEach(i=>i.value='');
+      qrPassword="";
+    }
+
+    window.addEventListener('load',()=>{
+      if(location.hash.startsWith('#qrlock=')){
+        mainCard.style.display='none';
+        gate.style.display='flex';
+      }
+    });
+
+    function unlock(){
+      const payload = location.hash.replace('#qrlock=','');
+      const obj = JSON.parse(atob(payload));
+
+      if(enterPass.value === obj.p){
+        window.location.href = obj.d;
+      } else alert('Wrong password');
+    }
+  </script></body>
+</html>
