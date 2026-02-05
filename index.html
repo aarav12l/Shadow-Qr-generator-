@@ -147,10 +147,26 @@
     }
 
     function downloadQR(){
-      const img=document.querySelector('#qrcode img');
-      if(!img) return alert('Generate QR first');
-      const a=document.createElement('a');
-      a.href=img.src;a.download='laxket-qr.png';a.click();
+      const canvas = document.querySelector('#qrcode canvas');
+      const img = document.querySelector('#qrcode img');
+
+      if(canvas){
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = 'laxket-qr.png';
+        link.click();
+        return;
+      }
+
+      if(img){
+        const link = document.createElement('a');
+        link.href = img.src;
+        link.download = 'laxket-qr.png';
+        link.click();
+        return;
+      }
+
+      alert('Pehle QR generate karo');
     }
 
     function clearQR(){
@@ -175,4 +191,4 @@
       } else alert('Wrong password');
     }
   </script></body>
-</html>
+  </html>
