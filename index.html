@@ -31,9 +31,25 @@
 
     .btn:hover{background:#cc0000}
 
-    #qrcode{margin-top:18px;padding:12px;background:#fff;border-radius:16px;display:inline-block;position:relative}
+    #qrcode{margin-top:18px;padding:12px;background:#fff;border-radius:16px;display:inline-block;position:relative;transition:background .3s}
 
     .small{font-size:12px;opacity:.8;margin-top:8px}
+
+    .colorRow{display:flex;gap:8px;margin-bottom:10px}
+
+    .colorField{flex:1;text-align:left}
+
+    .colorField label{display:block;font-size:11px;opacity:.75;margin-bottom:4px}
+
+    .colorField input[type=color]{width:100%;height:40px;padding:2px;margin-bottom:0;cursor:pointer;background:#222}
+
+    .presets{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;justify-content:center}
+
+    .swatch{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2px solid #444;flex:none;transition:.2s}
+
+    .swatch:hover{border-color:#ff0000;transform:scale(1.12)}
+
+    .logoBtn{font-size:12px}
 
     /* Password gate only after QR scan */
     .gate{position:fixed;inset:0;background:#000e;display:flex;justify-content:center;align-items:center}
@@ -53,6 +69,25 @@
 <input id="input1" placeholder="Enter text or link">
 <input id="input2" style="display:none">
 <input id="input3" style="display:none">
+
+<div class="colorRow">
+  <div class="colorField">
+    <label>QR Colour</label>
+    <input type="color" id="qrColor" value="#000000">
+  </div>
+  <div class="colorField">
+    <label>Background</label>
+    <input type="color" id="bgColor" value="#ffffff">
+  </div>
+</div>
+
+<div class="presets" id="presetsWrap"></div>
+
+<div class="row">
+  <button class="btn logoBtn" onclick="logoInput.click()">Add Logo</button>
+  <button class="btn logoBtn" onclick="removeLogo()">Remove Logo</button>
+</div>
+<input type="file" id="logoInput" accept="image/*" style="display:none">
 
 <div class="row">
   <button class="btn" onclick="setPassword()">Set Password (optional)</button>
@@ -78,7 +113,81 @@
   </div>  <script>
     let countVal = localStorage.getItem('genCount') || 0;
     let qrPassword = "";
+    let logoImg = null;
     count.innerText = countVal;
+
+    const presets = [
+      {name:'Classic',   dark:'#000000', light:'#ffffff'},
+      {name:'Laxket Red',dark:'#ff0000', light:'#ffffff'},
+      {name:'Ocean',     dark:'#0066ff', light:'#ffffff'},
+      {name:'Forest',    dark:'#0a7d32', light:'#ffffff'},
+      {name:'Sunset',    dark:'#ff7a00', light:'#fff4e0'},
+      {name:'Inverted',  dark:'#ffffff', light:'#000000'},
+      {name:'Purple',    dark:'#7a1fff', light:'#f3ecff'}
+    ];
+
+    function renderPresets(){
+      presets.forEach(p=>{
+        const sw = document.createElement('div');
+        sw.className='swatch';
+        sw.title=p.name;
+        sw.style.background = `linear-gradient(135deg, ${p.dark} 50%, ${p.light} 50%)`;
+        sw.onclick = ()=>{
+          qrColor.value = p.dark;
+          bgColor.value = p.light;
+          if(qrcode.querySelector('canvas,img')) generateQR();
+        };
+        presetsWrap.appendChild(sw);
+      });
+    }
+    renderPresets();
+
+    function roundRect(ctx,x,y,w,h,r){
+      ctx.beginPath();
+      ctx.moveTo(x+r,y);
+      ctx.arcTo(x+w,y,x+w,y+h,r);
+      ctx.arcTo(x+w,y+h,x,y+h,r);
+      ctx.arcTo(x,y+h,x,y,r);
+      ctx.arcTo(x,y,x+w,y,r);
+      ctx.closePath();
+    }
+
+    function drawLogo(){
+      const canvas = qrcode.querySelector('canvas');
+      if(!canvas || !logoImg) return;
+      const ctx = canvas.getContext('2d');
+      const size = canvas.width * 0.22;
+      const x = (canvas.width - size)/2;
+      const y = (canvas.height - size)/2;
+      const pad = size*0.14;
+
+      ctx.fillStyle = '#ffffff';
+      roundRect(ctx, x-pad, y-pad, size+pad*2, size+pad*2, size*0.15);
+      ctx.fill();
+
+      ctx.drawImage(logoImg, x, y, size, size);
+    }
+
+    logoInput.addEventListener('change', (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev)=>{
+        const img = new Image();
+        img.onload = ()=>{
+          logoImg = img;
+          if(qrcode.querySelector('canvas,img')) generateQR();
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function removeLogo(){
+      logoImg = null;
+      logoInput.value = '';
+      if(qrcode.querySelector('canvas,img')) generateQR();
+    }
 
     function setPassword(){
       const p = prompt("Enter password for this QR (leave blank for no password)");
@@ -141,7 +250,16 @@
       }
 
       qrcode.innerHTML='';
-      new QRCode(qrcode,{text:data,width:220,height:220,colorDark:'#000000'});
+      new QRCode(qrcode,{
+        text:data,width:512,height:512,
+        colorDark:qrColor.value,
+        colorLight:bgColor.value,
+        correctLevel:QRCode.CorrectLevel.H
+      });
+      qrcode.querySelectorAll('canvas,img').forEach(el=>{el.style.width='220px';el.style.height='220px'});
+      qrcode.style.background = bgColor.value;
+
+      if(logoImg) setTimeout(drawLogo, 50);
 
       countVal++; localStorage.setItem('genCount',countVal); count.innerText=countVal;
     }
@@ -149,29 +267,55 @@
     function downloadQR(){
       const canvas = document.querySelector('#qrcode canvas');
       const img = document.querySelector('#qrcode img');
+      const source = canvas || img;
+
+      if(!source){
+        alert('Pehle QR generate karo');
+        return;
+      }
+
+      const draw = (imgEl)=>{
+        const qrSize = imgEl.naturalWidth || imgEl.width;
+        const margin = Math.round(qrSize * 0.1); // quiet zone, jaise standard QR me hota hai
+        const finalSize = qrSize + margin * 2;
+
+        const out = document.createElement('canvas');
+        out.width = finalSize;
+        out.height = finalSize;
+        const ctx = out.getContext('2d');
+
+        ctx.fillStyle = bgColor.value || '#ffffff';
+        ctx.fillRect(0,0,finalSize,finalSize);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(imgEl, margin, margin, qrSize, qrSize);
+
+        const link = document.createElement('a');
+        link.href = out.toDataURL('image/png');
+        link.download = 'laxket-qr.png';
+        link.click();
+      };
 
       if(canvas){
-        const link = document.createElement('a');
-        link.href = canvas.toDataURL('image/png');
-        link.download = 'laxket-qr.png';
-        link.click();
+        draw(canvas);
         return;
       }
 
-      if(img){
-        const link = document.createElement('a');
-        link.href = img.src;
-        link.download = 'laxket-qr.png';
-        link.click();
-        return;
+      // agar sirf img hai (Safari fallback) to load hone ka wait karo
+      if(img.complete){
+        draw(img);
+      } else {
+        img.onload = () => draw(img);
       }
-
-      alert('Pehle QR generate karo');
     }
 
     function clearQR(){
       qrcode.innerHTML='';
-      document.querySelectorAll('#mainCard input').forEach(i=>i.value='');
+      qrcode.style.background = '#fff';
+      document.querySelectorAll('#mainCard input[type=text], #mainCard input:not([type])').forEach(i=>i.value='');
+      qrColor.value='#000000';
+      bgColor.value='#ffffff';
+      logoImg = null;
+      logoInput.value = '';
       qrPassword="";
     }
 
@@ -191,4 +335,4 @@
       } else alert('Wrong password');
     }
   </script></body>
-        </html>
+  </html>
