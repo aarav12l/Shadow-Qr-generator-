@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Laxket QR Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --red:#ff0000;
+    --red-dim:#ff000055;
+    --black:#000000;
+    --panel:#111111;
+    --panel2:#161616;
+    --line:#2a2a2a;
+    --text:#f2f2f2;
+    --muted:#9a9a9a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif}
+  html,body{background:var(--black);color:var(--text)}
+  body{min-height:100vh;display:flex;justify-content:center;padding:28px 14px}
+
+  .shell{width:100%;max-width:460px}
+
+  .brand{text-align:center;margin-bottom:16px}
+  .brand h1{color:var(--red);font-weight:700;font-size:22px;letter-spacing:.5px}
+  .brand p{color:var(--muted);font-size:12px;margin-top:4px}
+
+  .tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:5px;margin-bottom:14px}
+  .tab{flex:1;text-align:center;padding:10px 6px;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;color:var(--muted);transition:.2s}
+  .tab.active{background:var(--red);color:#fff}
+
+  .card{
+    padding:22px;border-radius:22px;background:var(--panel);
+    box-shadow:0 0 25px var(--red-dim);border:1px solid #ff000033;
+  }
+
+  .view{display:none}
+  .view.active{display:block}
+
+  h2.section-title{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin:18px 0 8px}
+  h2.section-title:first-child{margin-top:0}
+
+  .type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:6px}
+  .type-btn{
+    background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    padding:10px 4px;text-align:center;cursor:pointer;font-size:10px;color:var(--muted);
+    display:flex;flex-direction:column;align-items:center;gap:4px;transition:.15s;
+  }
+  .type-btn .ic{font-size:16px}
+  .type-btn:hover{border-color:var(--red)}
+  .type-btn.active{background:var(--red);color:#fff;border-color:var(--red)}
+
+  select,input,textarea{
+    width:100%;padding:12px;margin-bottom:10px;border-radius:12px;border:1px solid var(--line);
+    font-size:14px;background:var(--panel2);color:var(--text);
+  }
+  textarea{resize:vertical;min-height:70px}
+  input::placeholder,textarea::placeholder{color:#777}
+  select:focus,input:focus,textarea:focus{outline:none;border-color:var(--red)}
+
+  .row{display:flex;gap:8px}
+  .row > *{flex:1}
+
+  .btn{
+    padding:12px;border:none;border-radius:14px;font-size:13px;cursor:pointer;
+    background:var(--red);color:#fff;font-weight:500;transition:.2s;
+  }
+  .btn:hover{background:#cc0000}
+  .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--red);color:var(--red)}
+  .btn.block{width:100%;margin-top:8px}
+  .btn.big{padding:14px;font-size:14px;margin-top:6px}
+
+  .colorRow{display:flex;gap:8px;margin-bottom:10px}
+  .colorField{flex:1;text-align:left}
+  .colorField label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+  .colorField input[type=color]{width:100%;height:38px;padding:2px;margin-bottom:0;cursor:pointer;background:var(--panel2)}
+
+  .presets{display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+  .swatch{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid var(--line);flex:none;transition:.2s}
+  .swatch:hover{border-color:var(--red);transform:scale(1.12)}
+
+  .frame-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
+  .frame-chip{
+    background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:8px 4px;text-align:center;font-size:10px;color:var(--muted);cursor:pointer;
+  }
+  .frame-chip.active{border-color:var(--red);color:var(--red)}
+
+  .opt-row{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+  .opt-row label{font-size:11px;color:var(--muted);white-space:nowrap}
+
+  #qrWrap{margin-top:16px;display:flex;flex-direction:column;align-items:center}
+  #qrFrame{padding:14px;border-radius:16px;display:inline-block;position:relative;background:#fff}
+  #qrcode{display:inline-block;line-height:0}
+  .frame-label{text-align:center;font-weight:700;letter-spacing:1px;font-size:13px;margin-top:8px;color:#111}
+
+  .small{font-size:11px;color:var(--muted);margin-top:10px;text-align:center}
+
+  .download-row{display:flex;gap:8px;margin-top:12px}
+
+  /* history */
+  .hist-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .hist-item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:8px;text-align:center}
+  .hist-item img{width:100%;border-radius:8px;background:#fff;margin-bottom:6px}
+  .hist-item .meta{font-size:9px;color:var(--muted);margin-bottom:6px;word-break:break-word}
+  .hist-actions{display:flex;gap:4px}
+  .hist-actions button{flex:1;padding:5px;font-size:10px;border-radius:6px}
+  .empty{text-align:center;color:var(--muted);font-size:12px;padding:30px 0}
+
+  /* batch */
+  .batch-list{max-height:180px;overflow-y:auto;margin-top:10px;border:1px solid var(--line);border-radius:10px}
+  .batch-row{display:flex;justify-content:space-between;padding:8px 10px;font-size:11px;border-bottom:1px solid var(--line);color:var(--muted)}
+  .batch-row:last-child{border-bottom:none}
+
+  /* gate */
+  .gate{position:fixed;inset:0;background:#000e;display:flex;justify-content:center;align-items:center;z-index:50}
+  .gate-box{background:var(--panel);color:#fff;padding:22px;border-radius:16px;text-align:center;width:260px;border:1px solid var(--red)}
+  .gate-box h3{margin-bottom:12px;color:var(--red)}
+</style>
+</head>
+<body>
+
+<div class="shell" id="mainCard">
+  <div class="brand">
+    <h1>Laxket QR Generator</h1>
+    <p>Create, style, and manage your QR codes</p>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="generate">Generate</div>
+    <div class="tab" data-tab="batch">Batch</div>
+    <div class="tab" data-tab="history">History</div>
+    <div class="tab" data-tab="analytics">Analytics</div>
+  </div>
+
+  <div class="card">
+
+    <!-- GENERATE VIEW -->
+    <div class="view active" id="view-generate">
+      <h2 class="section-title">QR Type</h2>
+      <div class="type-grid" id="typeGrid"></div>
+
+      <div id="fieldsWrap"></div>
+
+      <h2 class="section-title">Colours</h2>
+      <div class="colorRow">
+        <div class="colorField">
+          <label>QR Colour</label>
+          <input type="color" id="qrColor" value="#000000">
+        </div>
+        <div class="colorField">
+          <label>Background</label>
+          <input type="color" id="bgColor" value="#ffffff">
+        </div>
+      </div>
+      <div class="presets" id="presetsWrap"></div>
+
+      <h2 class="section-title">Frame</h2>
+      <div class="frame-grid" id="frameGrid"></div>
+
+      <h2 class="section-title">Options</h2>
+      <div class="opt-row">
+        <label>Size</label>
+        <select id="sizeSelect">
+          <option value="200">Small (200px)</option>
+          <option value="300" selected>Medium (300px)</option>
+          <option value="450">Large (450px)</option>
+          <option value="600">Extra Large (600px)</option>
+        </select>
+      </div>
+      <div class="opt-row">
+        <label>Error correction</label>
+        <select id="eccSelect">
+          <option value="L">L — low</option>
+          <option value="M">M — medium</option>
+          <option value="Q">Q — quartile</option>
+          <option value="H" selected>H — high (best with logo)</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <button class="btn ghost" onclick="logoInput.click()">Add Logo</button>
+        <button class="btn ghost" onclick="removeLogo()">Remove Logo</button>
+      </div>
+      <input type="file" id="logoInput" accept="image/*" style="display:none">
+
+      <button class="btn ghost block" onclick="setPassword()">Set Password (optional)</button>
+
+      <div class="opt-row" style="margin-top:14px">
+        <input type="checkbox" id="dynamicToggle" style="width:auto;margin:0">
+        <label for="dynamicToggle" style="white-space:normal;font-size:12px">Make it Dynamic — editable later + scan tracking (uses Supabase)</label>
+      </div>
+
+      <button class="btn big block" onclick="generateQR()">Generate QR Code</button>
+
+      <div id="qrWrap">
+        <div id="qrFrame">
+          <div id="qrcode"></div>
+          <div class="frame-label" id="frameLabel" style="display:none"></div>
+        </div>
+      </div>
+
+      <div class="download-row" id="downloadRow" style="display:none">
+        <button class="btn ghost" onclick="downloadQR('png')">Download PNG</button>
+        <button class="btn ghost" onclick="downloadQR('svg')">Download SVG</button>
+      </div>
+      <button class="btn ghost block" id="clearBtn" style="display:none" onclick="clearQR()">Clear</button>
+
+      <div class="small">Total Generated: <span id="count">0</span></div>
+    </div>
+
+    <!-- BATCH VIEW -->
+    <div class="view" id="view-batch">
+      <h2 class="section-title">Batch Generate</h2>
+      <p class="small" style="margin-top:0">One value per line. Each line becomes its own QR (Text/Link type), styled with the colours below. Downloads as a ZIP.</p>
+      <textarea id="batchInput" placeholder="https://example.com/1&#10;https://example.com/2&#10;https://example.com/3"></textarea>
+
+      <div class="colorRow">
+        <div class="colorField">
+          <label>QR Colour</label>
+          <input type="color" id="batchQrColor" value="#000000">
+        </div>
+        <div class="colorField">
+          <label>Background</label>
+          <input type="color" id="batchBgColor" value="#ffffff">
+        </div>
+      </div>
+
+      <button class="btn big block" onclick="previewBatch()">Preview List</button>
+      <div class="batch-list" id="batchList"></div>
+      <button class="btn block" id="batchDownloadBtn" style="display:none" onclick="downloadBatchZip()">Download All as ZIP</button>
+    </div>
+
+    <!-- HISTORY VIEW -->
+    <div class="view" id="view-history">
+      <h2 class="section-title">Generated QR Codes</h2>
+      <div id="histGrid" class="hist-grid"></div>
+      <div class="empty" id="histEmpty">No QR codes saved yet.</div>
+      <button class="btn ghost block" id="clearHistBtn" style="display:none" onclick="clearHistory()">Clear History</button>
+    </div>
+
+    <!-- ANALYTICS VIEW -->
+    <div class="view" id="view-analytics">
+      <h2 class="section-title">Dynamic QR Analytics</h2>
+      <p class="small" style="margin-top:0">Scan counts for QR codes generated with "Make it Dynamic" turned on.</p>
+      <div id="analyticsList"></div>
+      <div class="empty" id="analyticsEmpty">No dynamic QR codes yet.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- PASSWORD SCREEN AFTER SCAN -->
+<div id="gate" class="gate" style="display:none">
+  <div class="gate-box">
+    <h3>Enter QR Password</h3>
+    <input id="enterPass" type="password" placeholder="Password">
+    <button class="btn block" onclick="unlock()">Open</button>
+  </div>
+</div>
+
+<script>
+/* ---------------- supabase ---------------- */
+const SUPABASE_URL = 'https://kwxwmezrhmwhncyyrvjt.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3eHdtZXpyaG13aG5jeXlydmp0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxMDM5MTIsImV4cCI6MjEwMjY3OTkxMn0.KA2usV7CkzxGBZD56_X44GYKEfJGOtaVKmwpvwlu6v8';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---------------- dynamic QR redirect handler ---------------- */
+/* If this page was opened with ?r=<slug>, this IS a QR scan landing here.
+   Look up the target in Supabase, log the scan, then redirect. Runs before
+   the rest of the UI shows itself. */
+async function handleRedirectIfNeeded(){
+  const params = new URLSearchParams(location.search);
+  const slug = params.get('r');
+  if(!slug) return false;
+
+  document.getElementById('mainCard').style.display = 'none';
+  const loading = document.createElement('div');
+  loading.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px';
+  loading.textContent = 'Opening…';
+  document.body.appendChild(loading);
+
+  try{
+    const { data: qr, error } = await sb.from('qr_codes').select('*').eq('slug', slug).single();
+    if(error || !qr){ loading.textContent = 'This QR code was not found or was deleted.'; return true; }
+
+    sb.from('qr_scans').insert({
+      qr_id: qr.id,
+      device: navigator.userAgent,
+      referrer: document.referrer || null
+    }).then(()=>{});
+
+    let dest = (qr.target_data && (qr.target_data.value ?? qr.target_data.url)) || '';
+
+    if(qr.password){
+      const entered = prompt('This QR is password protected. Enter password:');
+      if(entered !== qr.password){ loading.textContent = 'Wrong password.'; return true; }
+    }
+
+    if(dest){ window.location.href = dest; }
+    else { loading.textContent = 'No destination set for this QR code.'; }
+  }catch(e){
+    loading.textContent = 'Could not load this QR code. Check your connection.';
+  }
+  return true;
+}
+
+/* ---------------- state ---------------- */
+let countVal = parseInt(localStorage.getItem('genCount') || '0', 10);
+let qrPassword = "";
+let logoImg = null;
+let selectedFrame = "none";
+let batchItems = [];
+count.innerText = countVal;
+
+/* ---------------- QR type definitions ---------------- */
+const TYPES = [
+  { id:'text',     label:'Link/Text', icon:'🔗' },
+  { id:'phone',    label:'Phone',     icon:'📞' },
+  { id:'email',    label:'Email',     icon:'✉️' },
+  { id:'sms',      label:'SMS',       icon:'💬' },
+  { id:'whatsapp', label:'WhatsApp',  icon:'🟢' },
+  { id:'wifi',     label:'WiFi',      icon:'📶' },
+  { id:'location', label:'Location',  icon:'📍' },
+  { id:'vcard',    label:'Contact',   icon:'👤' },
+  { id:'event',    label:'Event',     icon:'📅' },
+  { id:'social',   label:'Social',    icon:'⭐' },
+  { id:'app',      label:'App Link',  icon:'📱' },
+  { id:'file',     label:'File/PDF',  icon:'📄' },
+];
+
+let currentType = 'text';
+
+function renderTypeGrid(){
+  const wrap = document.getElementById('typeGrid');
+  wrap.innerHTML = '';
+  TYPES.forEach(t=>{
+    const btn = document.createElement('div');
+    btn.className = 'type-btn' + (t.id===currentType ? ' active' : '');
+    btn.innerHTML = `<span class="ic">${t.icon}</span><span>${t.label}</span>`;
+    btn.onclick = ()=>{ currentType = t.id; renderTypeGrid(); renderFields(); };
+    wrap.appendChild(btn);
+  });
+}
+
+/* ---------------- dynamic fields per type ---------------- */
+function renderFields(){
+  const wrap = document.getElementById('fieldsWrap');
+  let html = '';
+  switch(currentType){
+    case 'text':
+      html = `<input id="f1" placeholder="Enter text or link">`; break;
+    case 'phone':
+      html = `<input id="f1" placeholder="Phone number (with country code)">`; break;
+    case 'email':
+      html = `<input id="f1" placeholder="Email address">
+              <input id="f2" placeholder="Subject">
+              <textarea id="f3" placeholder="Message"></textarea>`; break;
+    case 'sms':
+      html = `<input id="f1" placeholder="Phone number">
+              <textarea id="f2" placeholder="Message"></textarea>`; break;
+    case 'whatsapp':
+      html = `<input id="f1" placeholder="Phone number (with country code, no +)">
+              <textarea id="f2" placeholder="Pre-filled message"></textarea>`; break;
+    case 'wifi':
+      html = `<input id="f1" placeholder="Network name (SSID)">
+              <input id="f2" type="text" placeholder="Password">
+              <select id="f3">
+                <option value="WPA">WPA/WPA2</option>
+                <option value="WEP">WEP</option>
+                <option value="nopass">No password</option>
+              </select>`; break;
+    case 'location':
+      html = `<input id="f1" placeholder="Latitude">
+              <input id="f2" placeholder="Longitude">`; break;
+    case 'vcard':
+      html = `<input id="f1" placeholder="Full name">
+              <input id="f2" placeholder="Phone">
+              <input id="f3" placeholder="Email">
+              <input id="f4" placeholder="Company (optional)">
+              <input id="f5" placeholder="Website (optional)">`; break;
+    case 'event':
+      html = `<input id="f1" placeholder="Event title">
+              <input id="f2" placeholder="Location (optional)">
+              <label style="font-size:11px;color:var(--muted)">Start</label>
+              <input id="f3" type="datetime-local">
+              <label style="font-size:11px;color:var(--muted)">End</label>
+              <input id="f4" type="datetime-local">`; break;
+    case 'social':
+      html = `<p class="small" style="text-align:left;margin:0 0 8px">One link per line — opens as a simple link page. Best for 2-6 links.</p>
+              <textarea id="f1" placeholder="Instagram: https://instagram.com/you&#10;YouTube: https://youtube.com/@you"></textarea>`; break;
+    case 'app':
+      html = `<input id="f1" placeholder="App Store / Play Store link">`; break;
+    case 'file':
+      html = `<input id="f1" placeholder="Direct link to file / PDF">`; break;
+  }
+  wrap.innerHTML = html;
+}
+
+/* ---------------- presets & frames ---------------- */
+const presets = [
+  {name:'Classic',   dark:'#000000', light:'#ffffff'},
+  {name:'Laxket Red',dark:'#ff0000', light:'#ffffff'},
+  {name:'Ocean',     dark:'#0066ff', light:'#ffffff'},
+  {name:'Forest',    dark:'#0a7d32', light:'#ffffff'},
+  {name:'Sunset',    dark:'#ff7a00', light:'#fff4e0'},
+  {name:'Inverted',  dark:'#ffffff', light:'#000000'},
+  {name:'Purple',    dark:'#7a1fff', light:'#f3ecff'}
+];
+
+function renderPresets(){
+  const wrap = document.getElementById('presetsWrap');
+  presets.forEach(p=>{
+    const sw = document.createElement('div');
+    sw.className='swatch';
+    sw.title=p.name;
+    sw.style.background = `linear-gradient(135deg, ${p.dark} 50%, ${p.light} 50%)`;
+    sw.onclick = ()=>{
+      qrColor.value = p.dark;
+      bgColor.value = p.light;
+      if(qrcode.querySelector('canvas,img')) generateQR();
+    };
+    wrap.appendChild(sw);
+  });
+}
+
+const FRAMES = [
+  { id:'none',    label:'None' },
+  { id:'scanme',  label:'Scan Me' },
+  { id:'menu',    label:'Scan for Menu' },
+  { id:'pay',     label:'Scan to Pay' },
+  { id:'wifi',    label:'Scan for WiFi' },
+  { id:'follow',  label:'Scan to Follow' },
+];
+
+function renderFrames(){
+  const wrap = document.getElementById('frameGrid');
+  wrap.innerHTML = '';
+  FRAMES.forEach(f=>{
+    const chip = document.createElement('div');
+    chip.className = 'frame-chip' + (f.id===selectedFrame ? ' active' : '');
+    chip.textContent = f.label;
+    chip.onclick = ()=>{
+      selectedFrame = f.id;
+      renderFrames();
+      if(qrcode.querySelector('canvas,img')) generateQR();
+    };
+    wrap.appendChild(chip);
+  });
+}
+
+/* ---------------- logo ---------------- */
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function drawLogo(){
+  const canvas = qrcode.querySelector('canvas');
+  if(!canvas || !logoImg) return;
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width * 0.22;
+  const x = (canvas.width - size)/2;
+  const y = (canvas.height - size)/2;
+  const pad = size*0.14;
+  ctx.fillStyle = '#ffffff';
+  roundRect(ctx, x-pad, y-pad, size+pad*2, size+pad*2, size*0.15);
+  ctx.fill();
+  ctx.drawImage(logoImg, x, y, size, size);
+}
+
+logoInput.addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    const img = new Image();
+    img.onload = ()=>{
+  
